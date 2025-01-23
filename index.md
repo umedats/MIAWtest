@@ -1,185 +1,172 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>Debugging DOM Elements for Chat</title>
+  <meta charset="UTF-8" />
+  <title>Force Reopen Chat with openChat()</title>
 </head>
 <body>
-  <h1>Debugging DOM Elements for Chat</h1>
+  <h1>Force Reopen Chat with openChat()</h1>
   <p>
-    「ランチャーアイコン」や「チャット iframe」が正しく DOM に生成されているかをチェックするための
-    <strong>ログ出力用関数</strong>を用意しています。
+    以下のボタンで、終了済みセッションでも強制的にチャットウィンドウを<br>
+    新しいセッションとして再表示します。ランチャーが <code>display:none</code> でも、<br>
+    <code>openChat()</code> を呼ぶことでウィンドウを直接開くように実装しています。
   </p>
 
-  <!-- 操作用ボタン (任意) -->
+  <!-- ボタン群 -->
   <button onclick="removeChat()">Remove Chat</button>
-  <button onclick="reopenChat()">Reopen Chat</button>
-  <button onclick="logAllChatElements()">Log Chat Elements</button>
+  <button onclick="reinitAndOpenChat()">Reinit &amp; Open Chat</button>
 
   <hr/>
 
   <script>
     /********************************************************************
-     * 1) initChat()
-     *    - ここでは例としてチャットを初期化 → ランチャーアイコンを表示する想定
+     * 1) initChat() - Embedded Messaging 初期化 → openChat() で強制表示
      ********************************************************************/
     function initChat() {
       console.log('[initChat] START');
       try {
+        // 言語設定 (例: 'ja')
         embeddedservice_bootstrap.settings.language = 'ja';
-        
+
+        // 組織ID / デプロイID / Embedded Service URL を書き換える
         embeddedservice_bootstrap.init(
-          '00DIS000002CjVn',     // Org ID (例)
-          'MIAW4',              // Deployment ID (例)
+          '00DIS000002CjVn',    // Org ID (例)
+          'MIAW4',             // Deployment ID (例)
           'https://daihachi20240927.my.site.com/ESWMIAW41737545576136', // ES URL (例)
           {
             scrt2URL: 'https://daihachi20240927.my.salesforce-scrt.com'
           }
         );
+
         console.log('[initChat] SUCCESS: Chat initialized.');
       } catch (err) {
         console.error('[initChat] ERROR:', err);
       }
       console.log('[initChat] END');
+
+      // ★ init完了後にウィンドウを強制的に開く
+      setTimeout(() => {
+        if (
+          window.embeddedservice_bootstrap &&
+          typeof embeddedservice_bootstrap.openChat === 'function'
+        ) {
+          console.log('[initChat] Calling openChat() to force window display...');
+          embeddedservice_bootstrap.openChat();
+        } else {
+          console.warn('[initChat] openChat() not available; user may need to click an icon.');
+        }
+      }, 500);
     }
 
     /********************************************************************
-     * 2) removeChat()
-     *    - チャット要素 (iframe, script, localStorage, JSオブジェクト) を削除
+     * 2) removeChat() - 既存のチャット要素をすべて削除
      ********************************************************************/
     function removeChat(verbose = true) {
       if (verbose) console.log('[removeChat] START');
 
+      // removeIframe() があれば先に呼ぶ
       if (
         window.embeddedservice_bootstrap &&
         window.embeddedservice_bootstrap.core &&
         typeof window.embeddedservice_bootstrap.core.removeIframe === 'function'
       ) {
-        if (verbose) console.log('[removeChat] Calling removeIframe()...');
+        if (verbose) console.log('[removeChat] removeIframe()...');
         try {
           window.embeddedservice_bootstrap.core.removeIframe();
-        } catch (err) {
-          console.warn('[removeChat] removeIframe error:', err);
+        } catch(e) {
+          console.warn('[removeChat] removeIframe error:', e);
         }
       }
 
+      // scriptタグ (bootstrap.min.js) を削除
       const scriptTag = document.querySelector("script[src*='bootstrap.min.js']");
       if (scriptTag) {
-        if (verbose) console.log('[removeChat] Removing script tag:', scriptTag.outerHTML);
         scriptTag.remove();
+        if (verbose) console.log('[removeChat] Removed script tag.');
       }
 
+      // iframe を削除
       const iframeSelectors = [
         "iframe[data-embeddedmessaging]",
         "iframe[id*='embeddedMessaging']",
         "iframe[class*='embeddedMessaging']"
       ].join(',');
-      const chatIframes = document.querySelectorAll(iframeSelectors);
-      chatIframes.forEach(ifr => {
+      const allIframes = document.querySelectorAll(iframeSelectors);
+      allIframes.forEach(ifr => {
         if (verbose) console.log('[removeChat] Deleting iframe:', ifr.outerHTML);
         ifr.remove();
       });
 
+      // localStorage のチャット情報を削除
       try {
         localStorage.removeItem('embeddedMessaging:conversationData');
         localStorage.removeItem('embeddedMessaging:isLoggedIn');
         localStorage.removeItem('embeddedMessaging:settings');
-      } catch (e) {
-        console.warn('[removeChat] localStorage remove error:', e);
+      } catch (err) {
+        console.warn('[removeChat] localStorage remove error:', err);
       }
 
+      // JSオブジェクト embeddedservice_bootstrap を削除
       if (window.embeddedservice_bootstrap) {
         delete window.embeddedservice_bootstrap;
-        if (verbose) console.log('[removeChat] Deleted embeddedservice_bootstrap.');
+        if (verbose) console.log('[removeChat] Deleted window.embeddedservice_bootstrap.');
       }
 
       if (verbose) console.log('[removeChat] END');
     }
 
     /********************************************************************
-     * 3) reopenChat()
-     *    - removeChat() → 新しい script を挿入 → initChat()
+     * 3) loadChatScript() - 新しい script を読み込み、onload で initChat()
      ********************************************************************/
-    function reopenChat() {
-      console.log('[reopenChat] START');
-      removeChat(false);
+    function loadChatScript() {
+      console.log('[loadChatScript] START');
+      const scriptEl = document.createElement('script');
+      scriptEl.type = 'text/javascript';
 
-      setTimeout(() => {
-        console.log('[reopenChat] Adding new script tag...');
-        const scriptEl = document.createElement('script');
-        scriptEl.type = 'text/javascript';
-        scriptEl.src = 'https://daihachi20240927.my.site.com/ESWMIAW41737545576136/assets/js/bootstrap.min.js';
-        scriptEl.onload = () => {
-          console.log('[reopenChat] Script loaded. Now calling initChat()...');
-          if (window.embeddedservice_bootstrap) {
-            initChat();
-          } else {
-            console.warn('[reopenChat] embeddedservice_bootstrap not defined after script load.');
-          }
-        };
-        document.body.appendChild(scriptEl);
-      }, 300);
+      // 実際の bootstrap.min.js のURLに書き換える
+      scriptEl.src = 'https://daihachi20240927.my.site.com/ESWMIAW41737545576136/assets/js/bootstrap.min.js';
 
-      console.log('[reopenChat] END');
+      scriptEl.onload = () => {
+        console.log('[loadChatScript] Script loaded. Now calling initChat()...');
+        if (window.embeddedservice_bootstrap) {
+          initChat(); // ← init 後に openChat() を呼ぶ
+        } else {
+          console.warn('[loadChatScript] embeddedservice_bootstrap not defined after script load.');
+        }
+      };
+      scriptEl.onerror = (err) => {
+        console.error('[loadChatScript] Script load error:', err);
+      };
+
+      document.body.appendChild(scriptEl);
+      console.log('[loadChatScript] END');
     }
 
     /********************************************************************
-     * 4) logAllChatElements()
-     *    - チャット関連と思われる DOM 要素をリストアップ & 状態をログ出力
-     *    - ランチャーアイコン, iframe, ボタン などを探索し outerHTML や style を表示
+     * 4) reinitAndOpenChat() - removeChat() → loadChatScript()
      ********************************************************************/
-    function logAllChatElements() {
-      console.log('[logAllChatElements] START');
+    function reinitAndOpenChat() {
+      console.log('[reinitAndOpenChat] START');
+      removeChat(false);
 
-      // 4-1) iframe
-      const iframeSelectors = [
-        "iframe[data-embeddedmessaging]",
-        "iframe[id*='embeddedMessaging']",
-        "iframe[class*='embeddedMessaging']"
-      ].join(',');
-      const chatIframes = document.querySelectorAll(iframeSelectors);
-      console.log(`[logAllChatElements] Found ${chatIframes.length} chat iframes using selectors: ${iframeSelectors}`);
-      chatIframes.forEach((ifr, idx) => {
-        console.log(`- Iframe #${idx}:`, ifr, 'outerHTML:', ifr.outerHTML, 'computedStyle:', getComputedStyle(ifr));
-      });
+      setTimeout(() => {
+        loadChatScript();
+      }, 300);
 
-      // 4-2) ランチャーアイコン / ボタン
-      //    Embedded Messaging のランチャーボタンには "embeddedMessagingConversationButton" というクラスが付くことが多い
-      const launcherButtons = document.querySelectorAll("button.embeddedMessagingConversationButton");
-      console.log(`[logAllChatElements] Found ${launcherButtons.length} launcher buttons using selector: button.embeddedMessagingConversationButton`);
-      launcherButtons.forEach((btn, idx) => {
-        console.log(`- LauncherBtn #${idx}:`, btn, 'outerHTML:', btn.outerHTML, 'computedStyle:', getComputedStyle(btn));
-      });
-
-      // 4-3) 全要素の中に "embeddedMessaging" や "embeddedservice" といった文字列がclass/idに含まれるものを検索
-      const allEls = document.querySelectorAll('*');
-      const suspectEls = [];
-      allEls.forEach(el => {
-        const idClass = (el.id + ' ' + el.className).toLowerCase();
-        if (idClass.includes('embeddedmessaging') || idClass.includes('embeddedservice')) {
-          suspectEls.push(el);
-        }
-      });
-      console.log(`[logAllChatElements] Found ${suspectEls.length} suspect elements (id/class containing "embeddedMessaging" or "embeddedservice")`);
-      suspectEls.forEach((el, idx) => {
-        console.log(`- SuspectEl #${idx}:`, el, 'outerHTML:', el.outerHTML, 'computedStyle:', getComputedStyle(el));
-      });
-
-      console.log('[logAllChatElements] END');
+      console.log('[reinitAndOpenChat] END');
     }
 
     /********************************************************************
      * 5) onInitialLoad()
-     *    - ページ読み込み時に最初のチャットを初期化したい場合はこちらから呼ぶ
+     *    - ページロード時に何もしない例。最初からチャット開きたい場合は initChat() を呼ぶ
      ********************************************************************/
     function onInitialLoad() {
-      console.log('[onInitialLoad] Do nothing or init Chat here if needed.');
-      // initChat();
-      // もし最初からランチャーを表示したいなら上のコメントアウトを外す
+      console.log('[onInitialLoad] No auto-init. Use buttons to control chat.');
+      // initChat(); // ← もしページ読み込み時からウィンドウを表示したいならコメントアウトを解除
     }
   </script>
 
-  <!-- ページロード時 -->
+  <!-- ページ読み込み時に onInitialLoad() を呼ぶだけ -->
   <script
     type="text/javascript"
     src="https://daihachi20240927.my.site.com/ESWMIAW41737545576136/assets/js/bootstrap.min.js"
