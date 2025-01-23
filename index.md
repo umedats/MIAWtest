@@ -1,61 +1,55 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <title>Debug - Remove & Recreate Chat Launcher</title>
+  <meta charset="UTF-8">
+  <title>Debugging DOM Elements for Chat</title>
 </head>
 <body>
-  <h1>Debug - Remove &amp; Recreate Chat Launcher</h1>
+  <h1>Debugging DOM Elements for Chat</h1>
   <p>
-    このサンプルでは、<strong>最初のページロード</strong> から <code>initChatForLauncherIcon()</code> を呼び、<br>
-    ランチャーアイコンが表示される想定とし、<br>
-    会話終了後に <strong>Recreate</strong> ボタンを押しても同じフローでランチャーを再生成します。<br>
-    それでも表示されない場合は、コンソールログを確認し、<br>
-    <em>スクリプトの onload が呼ばれているか</em>、<em>init が成功しているか</em>、<em>ランチャー非表示の設定になっていないか</em> をご確認ください。
+    「ランチャーアイコン」や「チャット iframe」が正しく DOM に生成されているかをチェックするための
+    <strong>ログ出力用関数</strong>を用意しています。
   </p>
 
+  <!-- 操作用ボタン (任意) -->
   <button onclick="removeChat()">Remove Chat</button>
-  <button onclick="recreateChatLauncher()">Recreate Chat Launcher</button>
+  <button onclick="reopenChat()">Reopen Chat</button>
+  <button onclick="logAllChatElements()">Log Chat Elements</button>
 
   <hr/>
 
   <script>
     /********************************************************************
-     * 1) initChatForLauncherIcon()
-     *    - Chatを初期化し、ランチャーアイコンだけ表示する。
-     *    - ここでは openChat() を呼ばず、ユーザがアイコンを押して開く想定。
+     * 1) initChat()
+     *    - ここでは例としてチャットを初期化 → ランチャーアイコンを表示する想定
      ********************************************************************/
-    function initChatForLauncherIcon() {
-      console.log('[initChatForLauncherIcon] START');
+    function initChat() {
+      console.log('[initChat] START');
       try {
-        // 言語設定 (例: 'ja')
         embeddedservice_bootstrap.settings.language = 'ja';
-
-        // 組織ID / デプロイID / Embedded Service URL を自環境に合わせて設定
+        
         embeddedservice_bootstrap.init(
-          '00DIS000002CjVn',  // Org ID (例)
-          'MIAW4',            // Deployment ID (例)
+          '00DIS000002CjVn',     // Org ID (例)
+          'MIAW4',              // Deployment ID (例)
           'https://daihachi20240927.my.site.com/ESWMIAW41737545576136', // ES URL (例)
           {
             scrt2URL: 'https://daihachi20240927.my.salesforce-scrt.com'
           }
         );
-
-        console.log('[initChatForLauncherIcon] SUCCESS: Chat initialized (launcher mode).');
+        console.log('[initChat] SUCCESS: Chat initialized.');
       } catch (err) {
-        console.error('[initChatForLauncherIcon] ERROR:', err);
+        console.error('[initChat] ERROR:', err);
       }
-      console.log('[initChatForLauncherIcon] END');
+      console.log('[initChat] END');
     }
 
     /********************************************************************
      * 2) removeChat()
-     *    - チャット要素 (iframe, script, localStorage, JS object) を削除
+     *    - チャット要素 (iframe, script, localStorage, JSオブジェクト) を削除
      ********************************************************************/
     function removeChat(verbose = true) {
       if (verbose) console.log('[removeChat] START');
 
-      // removeIframe() があれば先に呼ぶ
       if (
         window.embeddedservice_bootstrap &&
         window.embeddedservice_bootstrap.core &&
@@ -69,16 +63,12 @@
         }
       }
 
-      // scriptタグ (bootstrap.min.js) を削除
       const scriptTag = document.querySelector("script[src*='bootstrap.min.js']");
       if (scriptTag) {
         if (verbose) console.log('[removeChat] Removing script tag:', scriptTag.outerHTML);
         scriptTag.remove();
-      } else if (verbose) {
-        console.warn('[removeChat] No existing script tag (bootstrap.min.js) found.');
       }
 
-      // iframe削除
       const iframeSelectors = [
         "iframe[data-embeddedmessaging]",
         "iframe[id*='embeddedMessaging']",
@@ -90,7 +80,6 @@
         ifr.remove();
       });
 
-      // localStorage 上のチャット情報を削除
       try {
         localStorage.removeItem('embeddedMessaging:conversationData');
         localStorage.removeItem('embeddedMessaging:isLoggedIn');
@@ -99,64 +88,100 @@
         console.warn('[removeChat] localStorage remove error:', e);
       }
 
-      // window.embeddedservice_bootstrap を削除
       if (window.embeddedservice_bootstrap) {
         delete window.embeddedservice_bootstrap;
-        if (verbose) console.log('[removeChat] Deleted window.embeddedservice_bootstrap.');
+        if (verbose) console.log('[removeChat] Deleted embeddedservice_bootstrap.');
       }
 
       if (verbose) console.log('[removeChat] END');
     }
 
     /********************************************************************
-     * 3) recreateChatLauncher()
-     *    - removeChat() → 新しい script を挿入 → onload で initChatForLauncherIcon()
+     * 3) reopenChat()
+     *    - removeChat() → 新しい script を挿入 → initChat()
      ********************************************************************/
-    function recreateChatLauncher() {
-      console.log('[recreateChatLauncher] START');
+    function reopenChat() {
+      console.log('[reopenChat] START');
       removeChat(false);
 
-      // 少し待ってから script を再挿入
       setTimeout(() => {
-        console.log('[recreateChatLauncher] Adding new script tag for bootstrap.min.js...');
+        console.log('[reopenChat] Adding new script tag...');
         const scriptEl = document.createElement('script');
         scriptEl.type = 'text/javascript';
-
-        // 組織の bootstrap.min.js のURLに合わせる
         scriptEl.src = 'https://daihachi20240927.my.site.com/ESWMIAW41737545576136/assets/js/bootstrap.min.js';
-
         scriptEl.onload = () => {
-          console.log('[recreateChatLauncher] Script loaded. Now calling initChatForLauncherIcon()...');
+          console.log('[reopenChat] Script loaded. Now calling initChat()...');
           if (window.embeddedservice_bootstrap) {
-            initChatForLauncherIcon();
+            initChat();
           } else {
-            console.warn('[recreateChatLauncher] embeddedservice_bootstrap not defined after script load.');
+            console.warn('[reopenChat] embeddedservice_bootstrap not defined after script load.');
           }
         };
-        scriptEl.onerror = (err) => {
-          console.error('[recreateChatLauncher] Script load error:', err);
-        };
-
         document.body.appendChild(scriptEl);
-      }, 500);
+      }, 300);
 
-      console.log('[recreateChatLauncher] END');
+      console.log('[reopenChat] END');
     }
 
     /********************************************************************
-     * 4) onInitialLoad()
-     *    - ページ読み込み時に一度だけ実行する (必要なら)
-     *    - ここでは最初にチャットを表示したくない場合は何も呼ばない or
-     *      initChatForLauncherIcon() を呼んで最初からアイコンを出しても可
+     * 4) logAllChatElements()
+     *    - チャット関連と思われる DOM 要素をリストアップ & 状態をログ出力
+     *    - ランチャーアイコン, iframe, ボタン などを探索し outerHTML や style を表示
+     ********************************************************************/
+    function logAllChatElements() {
+      console.log('[logAllChatElements] START');
+
+      // 4-1) iframe
+      const iframeSelectors = [
+        "iframe[data-embeddedmessaging]",
+        "iframe[id*='embeddedMessaging']",
+        "iframe[class*='embeddedMessaging']"
+      ].join(',');
+      const chatIframes = document.querySelectorAll(iframeSelectors);
+      console.log(`[logAllChatElements] Found ${chatIframes.length} chat iframes using selectors: ${iframeSelectors}`);
+      chatIframes.forEach((ifr, idx) => {
+        console.log(`- Iframe #${idx}:`, ifr, 'outerHTML:', ifr.outerHTML, 'computedStyle:', getComputedStyle(ifr));
+      });
+
+      // 4-2) ランチャーアイコン / ボタン
+      //    Embedded Messaging のランチャーボタンには "embeddedMessagingConversationButton" というクラスが付くことが多い
+      const launcherButtons = document.querySelectorAll("button.embeddedMessagingConversationButton");
+      console.log(`[logAllChatElements] Found ${launcherButtons.length} launcher buttons using selector: button.embeddedMessagingConversationButton`);
+      launcherButtons.forEach((btn, idx) => {
+        console.log(`- LauncherBtn #${idx}:`, btn, 'outerHTML:', btn.outerHTML, 'computedStyle:', getComputedStyle(btn));
+      });
+
+      // 4-3) 全要素の中に "embeddedMessaging" や "embeddedservice" といった文字列がclass/idに含まれるものを検索
+      const allEls = document.querySelectorAll('*');
+      const suspectEls = [];
+      allEls.forEach(el => {
+        const idClass = (el.id + ' ' + el.className).toLowerCase();
+        if (idClass.includes('embeddedmessaging') || idClass.includes('embeddedservice')) {
+          suspectEls.push(el);
+        }
+      });
+      console.log(`[logAllChatElements] Found ${suspectEls.length} suspect elements (id/class containing "embeddedMessaging" or "embeddedservice")`);
+      suspectEls.forEach((el, idx) => {
+        console.log(`- SuspectEl #${idx}:`, el, 'outerHTML:', el.outerHTML, 'computedStyle:', getComputedStyle(el));
+      });
+
+      console.log('[logAllChatElements] END');
+    }
+
+    /********************************************************************
+     * 5) onInitialLoad()
+     *    - ページ読み込み時に最初のチャットを初期化したい場合はこちらから呼ぶ
      ********************************************************************/
     function onInitialLoad() {
       console.log('[onInitialLoad] Do nothing or init Chat here if needed.');
-      // 例: initChatForLauncherIcon(); // ←初回からランチャーを出したい場合
+      // initChat();
+      // もし最初からランチャーを表示したいなら上のコメントアウトを外す
     }
   </script>
 
-  <!-- 初期ロードで特にチャットを表示しない場合、何もせず -->
+  <!-- ページロード時 -->
   <script
+    type="text/javascript"
     src="https://daihachi20240927.my.site.com/ESWMIAW41737545576136/assets/js/bootstrap.min.js"
     onload="onInitialLoad()"
   ></script>
