@@ -7,13 +7,13 @@
 <body>
   <h1>Auto Close Chat on "会話を終了した時刻"</h1>
   <p>
-    このサンプルでは、**DOM 監視 (MutationObserver)** を使い、
-    <strong>「会話を終了した時刻」</strong> という文字列がページに出現した瞬間、
-    <code>removeChat()</code> を呼び出してチャットを自動で閉じる例を示します。<br>
-    ※もし Shadow DOM 内に文字列が表示される場合は検知できません。
+    このサンプルでは、<strong>DOM 監視 (MutationObserver)</strong> で<br>
+    「会話を終了した時刻」の文言がページに追加されたら、自動で <code>removeChat()</code> を呼び、<br>
+    <strong>Reopen Chat ボタン</strong> を押すと、<strong>チャットを再初期化 & 自動でウィンドウを開く</strong> ようにしています。<br>
+    （Shadow DOM 内の場合は検知されず、自動クローズは動作しない点にご注意ください）
   </p>
 
-  <!-- チャット削除/再描画用のボタン (任意) -->
+  <!-- 手動削除/再描画用ボタン -->
   <button onclick="removeChat()">Remove Chat</button>
   <button onclick="reopenChat()">Reopen Chat</button>
 
@@ -22,24 +22,38 @@
   <script>
     /*****************************************
      * A) initChat() - チャット初期化関数
+     *    - Embedded Messaging を初期化
+     *    - 成功後に openChat() を呼び出し、ウィンドウを自動で開く
      *****************************************/
     function initChat() {
       console.log('[initChat] START');
       try {
+        // 言語設定（例: 'ja'）
         embeddedservice_bootstrap.settings.language = 'ja';
 
-        // 組織ID / デプロイID / Embedded Service URL を書き換えてください
+        // 組織ID / デプロイID / Embedded Service URL を環境に合わせて書き換えてください
         embeddedservice_bootstrap.init(
           '00DIS000002CjVn',   // Org ID
           'MIAW4',            // Deployment ID
           'https://daihachi20240927.my.site.com/ESWMIAW41737545576136', // ES URL
           { scrt2URL: 'https://daihachi20240927.my.salesforce-scrt.com' }
         );
+
         console.log('[initChat] SUCCESS: Chat initialized.');
       } catch (err) {
         console.error('[initChat] ERROR:', err);
       }
       console.log('[initChat] END');
+
+      // ★ ここで強制的にチャットウィンドウを開く
+      setTimeout(() => {
+        if (window.embeddedservice_bootstrap && typeof embeddedservice_bootstrap.openChat === 'function') {
+          console.log('[initChat] Calling embeddedservice_bootstrap.openChat()...');
+          embeddedservice_bootstrap.openChat();
+        } else {
+          console.warn('[initChat] openChat() not available. The user may need to click the chat icon manually.');
+        }
+      }, 500);
     }
 
     /*****************************************
@@ -47,6 +61,7 @@
      *****************************************/
     function removeChat(verbose = true) {
       if (verbose) console.log('[removeChat] START');
+
       // removeIframe() があれば呼ぶ
       if (
         window.embeddedservice_bootstrap &&
@@ -100,6 +115,8 @@
 
     /*****************************************
      * C) reopenChat() - 再度チャットを表示
+     *    - removeChat() で一度削除
+     *    - 新たに script を挿入して onload で initChat() → openChat()
      *****************************************/
     function reopenChat() {
       console.log('[reopenChat] START');
@@ -109,6 +126,7 @@
         console.log('[reopenChat] Adding new script tag...');
         const scriptEl = document.createElement('script');
         scriptEl.type = 'text/javascript';
+        // 組織の ES bootstrap.min.js のURLを指定
         scriptEl.src = 'https://daihachi20240927.my.site.com/ESWMIAW41737545576136/assets/js/bootstrap.min.js';
         scriptEl.onload = () => {
           console.log('[reopenChat] Script loaded. Calling initChat()...');
@@ -126,8 +144,7 @@
 
     /*****************************************
      * D) 自動検知: MutationObserver
-     *    - DOM変化を監視し、新たに追加された要素に
-     *      「会話を終了した時刻」 が含まれていれば removeChat()
+     *    「会話を終了した時刻」を含むノードが追加されたら removeChat()
      *****************************************/
     function autoCloseOnEndTime() {
       console.log('[autoCloseOnEndTime] START MutationObserver...');
@@ -135,14 +152,11 @@
         for (const mutation of mutationsList) {
           if (mutation.addedNodes) {
             mutation.addedNodes.forEach((node) => {
-              // nodeType = 1 (ELEMENT_NODE) の場合
               if (node.nodeType === Node.ELEMENT_NODE) {
-                // innerTextに "会話を終了した時刻" が含まれるか？
                 if (node.innerText && node.innerText.includes('会話を終了した時刻')) {
                   console.warn('[autoCloseOnEndTime] Detected end time text. Auto removing chat...');
                   removeChat();
-                  // 必要なら observer.disconnect() する
-                  observer.disconnect();
+                  observer.disconnect(); // 必要に応じて監視を終了
                 }
               }
             });
