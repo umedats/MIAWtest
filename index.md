@@ -127,7 +127,7 @@
         console.log('[reinitEmbeddedMessaging] Adding new script...');
         const scriptTag = document.createElement('script');
         scriptTag.type = 'text/javascript';
-        scriptTag.src = 'https://xxx.my.site.com/ESWxxx/assets/js/bootstrap.min.js'; // 実際のURLに合わせる
+        scriptTag.src = 'https://daihachi20240927.my.site.com/ESWMIAW41737545576136/assets/js/bootstrap.min.js'; // 実際のURLに合わせる
         scriptTag.onload = function() {
           console.log('[reinitEmbeddedMessaging] Script loaded. Now calling doInit()...');
           if (window.embeddedservice_bootstrap) {
