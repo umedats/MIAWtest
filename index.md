@@ -2,135 +2,162 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>Salesforce Embedded Messaging - Simple Manual End Chat</title>
+  <title>Salesforce Embedded Messaging - Remove & Reopen Example</title>
 </head>
 <body>
-  <h1>Salesforce Embedded Messaging - Manual End Chat Example</h1>
+  <h1>Salesforce Embedded Messaging - Remove &amp; Reopen Example</h1>
   <p>
-    こちらのページでは、<strong>独自の「End Chat」ボタン</strong> を用意し、  
-    ボタンを押すと <code>destroyEmbeddedMessaging()</code> を呼び出して、  
-    すべてのチャット関連要素 (iframe, script, localStorage など) を削除します。
+    このサンプルでは、以下の2つのボタンで Embedded Messaging を制御します。<br>
+    1. <strong>Remove Chat</strong>: チャット (iframe, script, localStorageなど) を削除<br>
+    2. <strong>Reopen Chat</strong>: 再度 script を挿入し、初期化してチャットウィンドウを再描画
   </p>
 
-  <!-- 1) 手動終了ボタン -->
-  <button onclick="endChat()">End Chat</button>
+  <button onclick="removeChat()">Remove Chat</button>
+  <button onclick="reopenChat()">Reopen Chat</button>
 
-  <hr/>
+  <hr>
 
   <script>
     /********************************************************************
-     * (A) Embedded Messaging 初期化関数
-     *     - Salesforce が提供する bootstrap.min.js の onload で呼ばれる
+     * 1) initChat()
+     *    - チャットを初期化 (iframeを描画) する関数
+     *    - Salesforceのbootstrap.min.js がロードされたら呼ぶ想定
      ********************************************************************/
-    function initEmbeddedMessaging() {
-      console.log('[initEmbeddedMessaging] START');
+    function initChat() {
+      console.log('[initChat] START');
       try {
         // 言語設定
         embeddedservice_bootstrap.settings.language = 'ja';
 
-        // 組織ID / デプロイID / Embedded Service URL を書き換えてください
+        // 実際の組織ID / デプロイID / Embedded Service URLに書き換えてください
         embeddedservice_bootstrap.init(
-          '00DIS000002CjVn',        // Org ID (例)
-          'MIAW4',                 // Deployment ID (例)
+          '00DIS000002CjVn',  // Org ID
+          'MIAW4',            // Deployment ID
           'https://daihachi20240927.my.site.com/ESWMIAW41737545576136', // Embedded Service URL
           {
             scrt2URL: 'https://daihachi20240927.my.salesforce-scrt.com'
           }
         );
-
-        console.log('[initEmbeddedMessaging] SUCCESS: Chat initialized.');
+        console.log('[initChat] SUCCESS: Chat initialized.');
       } catch (err) {
-        console.error('[initEmbeddedMessaging] ERROR loading Embedded Messaging:', err);
+        console.error('[initChat] ERROR:', err);
       }
-      console.log('[initEmbeddedMessaging] END');
+      console.log('[initChat] END');
     }
 
-
     /********************************************************************
-     * (B) 独自の「End Chat」ボタンを押したときの処理
-     *     - destroyEmbeddedMessaging() を呼ぶだけ
+     * 2) removeChat():  
+     *    - チャット(iframe, script, localStorage, window object) を削除
      ********************************************************************/
-    function endChat() {
-      console.log('[endChat] User triggered custom End Chat button. Destroying chat...');
-      destroyEmbeddedMessaging();
-    }
+    function removeChat(verbose = true) {
+      if (verbose) console.log('[removeChat] START');
 
-
-    /********************************************************************
-     * (C) destroyEmbeddedMessaging(): 
-     *     チャット用の iframe, script, localStorage, embeddedservice_bootstrap を削除
-     ********************************************************************/
-    function destroyEmbeddedMessaging(verbose = true) {
-      if (verbose) console.log('[destroyEmbeddedMessaging] START');
-
-      // removeIframe() が使えるなら先に呼ぶ
+      // 2-1) removeIframe() があれば呼ぶ
       if (
         window.embeddedservice_bootstrap &&
         window.embeddedservice_bootstrap.core &&
         typeof window.embeddedservice_bootstrap.core.removeIframe === 'function'
       ) {
-        if (verbose) console.log('[destroyEmbeddedMessaging] Calling removeIframe()...');
+        if (verbose) console.log('[removeChat] Calling removeIframe()...');
         try {
           window.embeddedservice_bootstrap.core.removeIframe();
         } catch (err) {
-          console.warn('[destroyEmbeddedMessaging] removeIframe error:', err);
+          console.warn('[removeChat] removeIframe error:', err);
         }
       }
 
-      // script タグ削除 (bootstrap.min.js)
+      // 2-2) scriptタグ (bootstrap.min.js) を削除
       const script = document.querySelector("script[src*='bootstrap.min.js']");
       if (script) {
-        if (verbose) console.log('[destroyEmbeddedMessaging] Removing script tag:', script.outerHTML);
+        if (verbose) console.log('[removeChat] Removing script tag:', script.outerHTML);
         script.remove();
+      } else {
+        if (verbose) console.warn('[removeChat] No script tag found for bootstrap.min.js');
       }
 
-      // すべての Embedded Messaging iframe を削除
-      const iframeSelector = [
+      // 2-3) チャット用 iframe を削除
+      const iframeSelectors = [
         "iframe[data-embeddedmessaging]",
         "iframe[id*='embeddedMessaging']",
         "iframe[class*='embeddedMessaging']"
       ].join(',');
-
-      const chatIframes = document.querySelectorAll(iframeSelector);
+      const chatIframes = document.querySelectorAll(iframeSelectors);
       chatIframes.forEach((iframe) => {
-        if (verbose) console.log('[destroyEmbeddedMessaging] Deleting iframe:', iframe.outerHTML);
+        if (verbose) console.log('[removeChat] Deleting iframe:', iframe.outerHTML);
         iframe.remove();
       });
 
-      // localStorage のセッション情報を削除
+      // 2-4) localStorage 削除
       try {
         localStorage.removeItem('embeddedMessaging:conversationData');
         localStorage.removeItem('embeddedMessaging:isLoggedIn');
         localStorage.removeItem('embeddedMessaging:settings');
       } catch (e) {
-        console.warn('[destroyEmbeddedMessaging] Error clearing localStorage:', e);
+        console.warn('[removeChat] Error removing localStorage keys:', e);
       }
 
-      // embeddedservice_bootstrap オブジェクトを削除
+      // 2-5) window.embeddedservice_bootstrap 削除
       if (window.embeddedservice_bootstrap) {
         delete window.embeddedservice_bootstrap;
+        if (verbose) console.log('[removeChat] Deleted embeddedservice_bootstrap from window.');
       }
 
+      // 2-6) ログに残っているiframe数を表示
+      const remaining = document.querySelectorAll('iframe');
       if (verbose) {
-        const remainingIframes = document.querySelectorAll('iframe');
-        console.log(`[destroyEmbeddedMessaging] Iframes left in DOM: ${remainingIframes.length}`);
-        remainingIframes.forEach((frame, idx) => {
-          console.log(`- Iframe #${idx}:`, frame.outerHTML);
+        console.log('[removeChat] Iframes left in DOM:', remaining.length);
+        remaining.forEach((frm, idx) => {
+          console.log(`- Iframe #${idx}:`, frm.outerHTML);
         });
       }
 
-      if (verbose) console.log('[destroyEmbeddedMessaging] END');
+      if (verbose) console.log('[removeChat] END');
+    }
+
+    /********************************************************************
+     * 3) reopenChat():  
+     *    - scriptタグを再挿入 → onload で initChat() を呼び出し → iframe再描画
+     ********************************************************************/
+    function reopenChat() {
+      console.log('[reopenChat] START');
+
+      // まず removeChat() で前のチャットを破棄 (念のため)
+      removeChat(false);
+
+      // script タグを再挿入
+      setTimeout(() => {
+        console.log('[reopenChat] Adding bootstrap.min.js script tag again...');
+        const scriptEl = document.createElement('script');
+        scriptEl.type = 'text/javascript';
+        // 実際の bootstrap.min.js のURLを設定
+        scriptEl.src = 'https://daihachi20240927.my.site.com/ESWMIAW41737545576136/assets/js/bootstrap.min.js';
+        // ロード後に initChat() を呼ぶ
+        scriptEl.onload = () => {
+          console.log('[reopenChat] Script loaded. Calling initChat()...');
+          if (window.embeddedservice_bootstrap) {
+            initChat();
+          } else {
+            console.warn('[reopenChat] embeddedservice_bootstrap not defined after script load.');
+          }
+        };
+        scriptEl.onerror = (err) => {
+          console.error('[reopenChat] Failed to load script:', err);
+        };
+        document.body.appendChild(scriptEl);
+      }, 300);
+
+      console.log('[reopenChat] END');
     }
   </script>
 
   <!-- 
-       (D) 初回ロード時に initEmbeddedMessaging() を呼ぶスクリプト 
-       src= のURLは各自の組織に合わせて書き換えてください
+       4) 初回ロード時: script を読み込み、onload で initChat() を呼ぶ
+       src= のURLは実際の Salesfore Embedded Service のbootstrap.min.js に書き換える
   -->
   <script
     type="text/javascript"
     src="https://daihachi20240927.my.site.com/ESWMIAW41737545576136/assets/js/bootstrap.min.js"
-    onload="initEmbeddedMessaging()"
+    onload="initChat()"
   ></script>
 </body>
 </html>
