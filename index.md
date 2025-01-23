@@ -2,15 +2,16 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>Remove Chat & Recreate Launcher Example</title>
+  <title>Debug - Remove & Recreate Chat Launcher</title>
 </head>
 <body>
-  <h1>Remove Chat & Recreate Launcher Example</h1>
+  <h1>Debug - Remove &amp; Recreate Chat Launcher</h1>
   <p>
-    以下の 2 つのボタンを用意しています。<br>
-    1. <strong>Remove Chat</strong>: チャット (iframe, script, localStorage, など) を削除<br>
-    2. <strong>Recreate Chat Launcher</strong>: 再度チャットのスクリプトを読み込み、<br>
-       ランチャーアイコンを表示する初期化のみ行う (<code>openChat()</code> は呼ばない)
+    このサンプルでは、<strong>最初のページロード</strong> から <code>initChatForLauncherIcon()</code> を呼び、<br>
+    ランチャーアイコンが表示される想定とし、<br>
+    会話終了後に <strong>Recreate</strong> ボタンを押しても同じフローでランチャーを再生成します。<br>
+    それでも表示されない場合は、コンソールログを確認し、<br>
+    <em>スクリプトの onload が呼ばれているか</em>、<em>init が成功しているか</em>、<em>ランチャー非表示の設定になっていないか</em> をご確認ください。
   </p>
 
   <button onclick="removeChat()">Remove Chat</button>
