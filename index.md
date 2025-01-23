@@ -150,7 +150,7 @@
   -->
   <script
     type="text/javascript"
-    src="https://xxx.my.site.com/ESWxxx/assets/js/bootstrap.min.js"
+    src="https://daihachi20240927.my.site.com/ESWMIAW41737545576136/assets/js/bootstrap.min.js"
     onload="initEmbeddedMessagingAtPageLoad()"
   ></script>
 </body>
