@@ -1,16 +1,21 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <title>Force Show Launcher after Reinit</title>
+  <meta charset="UTF-8">
+  <title>Force Chat with Custom OnClick</title>
 </head>
 <body>
-  <h1>Force Show Launcher after Reinit</h1>
+  <h1>Force Chat with Custom OnClick</h1>
+  <p>
+    ランチャーアイコンを強制表示したあと、<br>
+    <strong>クリック時に <code>embeddedservice_bootstrap.openChat()</code> を呼ぶ</strong> ようにして、  
+    内部状態が「終了」扱いでもウィンドウを無理やり開きます。
+  </p>
 
   <button onclick="removeChat()">Remove Chat</button>
-  <button onclick="reAddChat()">Re-Init Chat</button>
+  <button onclick="reAddChat()">Re-Add Chat</button>
 
-  <hr />
+  <hr/>
 
   <script type="text/javascript">
     function initEmbeddedMessaging() {
@@ -18,21 +23,34 @@
       try {
         embeddedservice_bootstrap.settings.language = 'ja';
 
-        // ここで "onEmbeddedMessagingReady" のリスナーを仕込む
+        // 1) onEmbeddedMessagingReady: UI 準備完了時にランチャーボタンを強制表示 & onclick 設定
         window.addEventListener('onEmbeddedMessagingReady', () => {
-          console.log('[onEmbeddedMessagingReady] triggered. Forcing launcher to display.');
+          console.log('[onEmbeddedMessagingReady] triggered. Forcing launcher display & custom onclick...');
 
-          // ランチャーボタンを強制的に表示
+          // ランチャーボタンを探す
           const launcherBtn = document.getElementById('embeddedMessagingConversationButton');
           if (launcherBtn) {
-            console.log('[onEmbeddedMessagingReady] Found button. Overriding display:none...');
-            launcherBtn.style.display = 'block'; // 強制的に表示
-            launcherBtn.removeAttribute('tabindex'); // もし tabindex=-1 なら削除
+            console.log('[onEmbeddedMessagingReady] Found button. Overriding display:none, setting onclick...');
+            launcherBtn.style.display = 'block';            // 表示を強制
+            launcherBtn.removeAttribute('disabled');        // 念のため有効化
+            launcherBtn.removeAttribute('tabindex');        // -1 なら削除
+            launcherBtn.style.pointerEvents = 'auto';       // クリック可能に
+
+            // ボタンをクリックしたら openChat() を呼ぶ
+            launcherBtn.onclick = () => {
+              console.log('[launcherBtn.onclick] Forced openChat()');
+              if (embeddedservice_bootstrap && typeof embeddedservice_bootstrap.openChat === 'function') {
+                embeddedservice_bootstrap.openChat();
+              } else {
+                console.warn('[launcherBtn.onclick] openChat() not available');
+              }
+            };
           } else {
             console.warn('[onEmbeddedMessagingReady] No #embeddedMessagingConversationButton found');
           }
         });
 
+        // 2) init
         embeddedservice_bootstrap.init(
           '00DIS000002CjVn',
           'MIAW4',
@@ -49,9 +67,9 @@
       console.log('[initEmbeddedMessaging] END');
     }
 
+    // 既存チャット削除
     function removeChat() {
       console.log('[removeChat] START');
-      // removeIframe などで既存要素を削除
       if (
         window.embeddedservice_bootstrap &&
         window.embeddedservice_bootstrap.core &&
@@ -60,14 +78,15 @@
         console.log('[removeChat] removeIframe()...');
         try {
           window.embeddedservice_bootstrap.core.removeIframe();
-        } catch(e) { console.warn('[removeChat] removeIframe error:', e); }
+        } catch (e) {
+          console.warn('[removeChat] removeIframe error:', e);
+        }
       }
       const scriptTag = document.querySelector("script[src*='bootstrap.min.js']");
       if (scriptTag) {
         console.log('[removeChat] Removing script:', scriptTag.outerHTML);
         scriptTag.remove();
       }
-      // iframe など削除
       const iframeSel = [
         "iframe[data-embeddedmessaging]",
         "iframe[id*='embeddedMessaging']",
@@ -77,12 +96,13 @@
         console.log('[removeChat] Removing iframe:', ifr.outerHTML);
         ifr.remove();
       });
-      // localStorage
       try {
         localStorage.removeItem('embeddedMessaging:conversationData');
         localStorage.removeItem('embeddedMessaging:isLoggedIn');
         localStorage.removeItem('embeddedMessaging:settings');
-      } catch(e) { console.warn('[removeChat] localStorage remove error:', e); }
+      } catch(e) {
+        console.warn('[removeChat] localStorage remove error:', e);
+      }
       if (window.embeddedservice_bootstrap) {
         delete window.embeddedservice_bootstrap;
         console.log('[removeChat] Deleted window.embeddedservice_bootstrap');
@@ -90,10 +110,10 @@
       console.log('[removeChat] END');
     }
 
+    // 新たにチャットを再初期化
     function reAddChat() {
       console.log('[reAddChat] START');
       removeChat();
-      // 新たな script を挿入
       setTimeout(() => {
         console.log('[reAddChat] Inserting new script for Chat...');
         const scriptEl = document.createElement('script');
@@ -113,11 +133,12 @@
     }
   </script>
 
-  <!-- 初回ロード: 何もしない (or onload="initEmbeddedMessaging()") -->
+  <!-- 初回ロード時にinit -->
   <script
     type="text/javascript"
     src="https://daihachi20240927.my.site.com/ESWMIAW41737545576136/assets/js/bootstrap.min.js"
     onload="initEmbeddedMessaging()"
   ></script>
+
 </body>
 </html>
