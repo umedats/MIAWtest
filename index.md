@@ -1,52 +1,44 @@
 <html>
+
 <body>
   <h1>Salesforce Embedded Messaging Test</h1>
-  <p>
-    ページ読み込み時に一度だけ init を実行。<br>
-    Destroy ボタンで破棄し、Reinit ボタンで再初期化できます。
-  </p>
+  <p>初期ロード時に一度だけ init。Destroy ボタンで破棄、Reinit ボタンで再初期化します。</p>
 
-  <!-- 操作用のボタン -->
   <button onclick="destroyEmbeddedMessaging()">Destroy (Force Close)</button>
   <button onclick="reinitEmbeddedMessaging()">Reinit Embedded Messaging</button>
 
   <script>
     /**
      * ページ読み込み時 (script onload) に呼ばれる関数。
-     * - Salesforceのbootstrap.min.js が読み込まれたら実行
-     * - embeddedservice_bootstrap が定義済みかチェックしてから init を試みる
+     * embeddedservice_bootstrap が既に存在すれば -> 破棄して終了
+     * 存在しなければ -> doInit() で初期化
      */
     function initEmbeddedMessagingAtPageLoad() {
-      console.log('[initEmbeddedMessagingAtPageLoad] START - Script loaded.');
+      console.log('[initEmbeddedMessagingAtPageLoad] START');
 
       if (window.embeddedservice_bootstrap) {
-        console.log('[initEmbeddedMessagingAtPageLoad] embeddedservice_bootstrap found. Calling doInit()...');
-        doInit();
-      } else {
-        console.warn('[initEmbeddedMessagingAtPageLoad] No embeddedservice_bootstrap yet. Retrying in 1 second...');
-        setTimeout(function() {
-          if (window.embeddedservice_bootstrap) {
-            console.log('[initEmbeddedMessagingAtPageLoad] Retrying doInit() after delay...');
-            doInit();
-          } else {
-            console.error('[initEmbeddedMessagingAtPageLoad] Still no embeddedservice_bootstrap after 1 second. Aborting init.');
-          }
-        }, 1000);
+        console.warn('[initEmbeddedMessagingAtPageLoad] Found existing embeddedservice_bootstrap. Destroying...');
+        destroyEmbeddedMessaging();
+        // destroy で scriptタグやブートストラップオブジェクトを消すので、
+        // ここではすぐに init を呼ばず、いったん終了。
+        // 必要であれば setTimeout で再init してもOK。
+        return;
       }
+
+      // まだ embeddedservice_bootstrap がなければ init
+      doInit();
     }
 
     /**
-     * 実際に Embedded Messaging を初期化する関数。
-     * - embeddedservice_bootstrap.settings の設定
-     * - embeddedservice_bootstrap.init(...) の呼び出し
+     * Embedded Messaging の本来の init 処理
      */
     function doInit() {
       console.log('[doInit] START');
       try {
-        // 言語設定など
+        // language設定
         embeddedservice_bootstrap.settings.language = 'ja';
 
-        // ★ 実際の Org ID / Deployment ID / URL に書き換えてください
+        // 実際の init(OrgID, DeployID, URL, {options...}) を書き換える
         embeddedservice_bootstrap.init(
           '00Dxxxxxxxxxxxx',  // Org ID
           'MIAWxxxxxxxxxxxx', // Deployment ID
@@ -55,22 +47,20 @@
             scrt2URL: 'https://xxx.my.salesforce-scrt.com'
           }
         );
-
         console.log('[doInit] SUCCESS: Embedded Messaging initialized.');
-      } catch (e) {
+      } catch(e) {
         console.error('[doInit] ERROR:', e);
       }
       console.log('[doInit] END');
     }
 
     /**
-     * Embedded Messaging を破棄してチャットウィンドウを強制的に閉じる関数。
-     * - iframe や script、localStorage、window オブジェクト等を除去
+     * Embedded Messaging の破棄
      */
     function destroyEmbeddedMessaging(verbose = true) {
       if (verbose) console.log('[destroyEmbeddedMessaging] START');
 
-      // もし内部の removeIframe() メソッドがあれば、それを先に呼ぶ（任意）
+      // removeIframe() が使えるなら先に呼ぶ (任意)
       if (
         window.embeddedservice_bootstrap &&
         window.embeddedservice_bootstrap.core &&
@@ -84,87 +74,81 @@
         }
       }
 
-      // 1. script タグ (bootstrap.min.js) を削除
+      // script タグ削除
       const script = document.querySelector("script[src*='bootstrap.min.js']");
       if (script) {
         script.remove();
-        if (verbose) console.log('[destroyEmbeddedMessaging] Removed Embedded Messaging script tag.');
+        if (verbose) console.log('[destroyEmbeddedMessaging] Removed script tag.');
       }
 
-      // 2. iframe を直接削除 (data-embeddedmessaging など属性で検索)
+      // iframe (data-embeddedmessaging) を削除
       const chatIframe = document.querySelector('iframe[data-embeddedmessaging], iframe[class*="embeddedMessaging"]');
       if (chatIframe) {
         chatIframe.remove();
         if (verbose) console.log('[destroyEmbeddedMessaging] Removed chat iframe.');
       }
 
-      // 3. コンテナ (#embeddedMessaging) を削除
+      // コンテナID(#embeddedMessaging) があれば削除
       const container = document.getElementById('embeddedMessaging');
       if (container) {
         container.remove();
         if (verbose) console.log('[destroyEmbeddedMessaging] Removed #embeddedMessaging container.');
       }
 
-      // 4. localStorage をクリア
+      // localStorage削除
       try {
         localStorage.removeItem('embeddedMessaging:conversationData');
         localStorage.removeItem('embeddedMessaging:isLoggedIn');
         localStorage.removeItem('embeddedMessaging:settings');
-        if (verbose) console.log('[destroyEmbeddedMessaging] Cleared localStorage for embeddedMessaging data.');
-      } catch (e) {
-        console.warn('[destroyEmbeddedMessaging] Error clearing localStorage:', e);
+        if (verbose) console.log('[destroyEmbeddedMessaging] Cleared localStorage.');
+      } catch (err) {
+        console.warn('[destroyEmbeddedMessaging] Error clearing localStorage:', err);
       }
 
-      // 5. window.embeddedservice_bootstrap を削除
+      // windowオブジェクト上の embeddedservice_bootstrap を削除
       if (window.embeddedservice_bootstrap) {
         delete window.embeddedservice_bootstrap;
-        if (verbose) console.log('[destroyEmbeddedMessaging] Deleted embeddedservice_bootstrap from window.');
+        if (verbose) console.log('[destroyEmbeddedMessaging] Deleted window.embeddedservice_bootstrap.');
       }
 
       if (verbose) console.log('[destroyEmbeddedMessaging] END');
     }
 
     /**
-     * 再初期化 (Reinit) ボタンで呼び出す関数。
-     * - まず破棄(destroy) → 少し待って → 新しい script を読み込む → onload で doInit()
+     * 再初期化
+     * - いったん destroy
+     * - 少し待って新しい <script> を読み込み -> onload で doInit()
      */
     function reinitEmbeddedMessaging() {
       console.log('[reinitEmbeddedMessaging] START');
-      // 破棄
       destroyEmbeddedMessaging();
 
-      // 少し待ってから再ロード (setTimeoutは例示的に500ms, 必要なら調整)
-      setTimeout(function() {
-        console.log('[reinitEmbeddedMessaging] Adding a new script tag...');
-
-        // 新しい <script> タグを追加
+      // 破棄完了後にセットタイムアウトなどで init する
+      setTimeout(() => {
+        console.log('[reinitEmbeddedMessaging] Adding new script...');
         const scriptTag = document.createElement('script');
         scriptTag.type = 'text/javascript';
-        // ここも実際の bootstrap.min.js の URL に置き換えてください
-        scriptTag.src = 'https://xxx.my.site.com/ESWxxx/assets/js/bootstrap.min.js';
-
-        // script がロードされたら再度 doInit()
+        scriptTag.src = 'https://xxx.my.site.com/ESWxxx/assets/js/bootstrap.min.js'; // 実際のURLに合わせる
         scriptTag.onload = function() {
           console.log('[reinitEmbeddedMessaging] Script loaded. Now calling doInit()...');
           if (window.embeddedservice_bootstrap) {
             doInit();
           } else {
-            console.warn('[reinitEmbeddedMessaging] embeddedservice_bootstrap not defined after loading script.');
+            console.warn('[reinitEmbeddedMessaging] embeddedservice_bootstrap not defined after script load.');
           }
         };
-
-        scriptTag.onerror = function(e) {
-          console.error('[reinitEmbeddedMessaging] ERROR loading new script:', e);
-        };
-
         document.body.appendChild(scriptTag);
       }, 500);
 
-      console.log('[reinitEmbeddedMessaging] END (waiting for setTimeout...)');
+      console.log('[reinitEmbeddedMessaging] END (waiting 500ms before loading new script)');
     }
   </script>
 
-  <!-- 初回のみ読み込む Script。onload で initEmbeddedMessagingAtPageLoad() を呼ぶ -->
+  <!-- 
+    初回のみ読み込むScript。
+    onload で initEmbeddedMessagingAtPageLoad() を呼ぶことで
+    ページロード時に一度だけ init を実行
+  -->
   <script
     type="text/javascript"
     src="https://xxx.my.site.com/ESWxxx/assets/js/bootstrap.min.js"
