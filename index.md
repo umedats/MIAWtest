@@ -1,7 +1,7 @@
 <html lang="ja">
 
 <body>
-  <h1>Salesforce Embedded Service Chat Test 2</h1>
+  <h1>Salesforce Embedded Service Chat Test</h1>
   <p>
     こちらは、Salesforce の Embedded Service デプロイメントから
     取得したコードスニペットを埋め込んだテスト用のページです。
