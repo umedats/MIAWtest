@@ -39,17 +39,16 @@
         embeddedservice_bootstrap.settings.language = 'ja';
 
         // 実際の init(OrgID, DeployID, URL, {options...}) を書き換える
-        embeddedservice_bootstrap.init(
-          '00Dxxxxxxxxxxxx',  // Org ID
-          'MIAWxxxxxxxxxxxx', // Deployment ID
-          'https://xxx.my.site.com/ESWxxx', // Embedded Service URL
+   embeddedservice_bootstrap.init(
+          '00DIS000002CjVn',
+          'MIAW4',
+          'https://daihachi20240927.my.site.com/ESWMIAW41737545576136',
           {
-            scrt2URL: 'https://xxx.my.salesforce-scrt.com'
+            scrt2URL: 'https://daihachi20240927.my.salesforce-scrt.com'
           }
         );
-        console.log('[doInit] SUCCESS: Embedded Messaging initialized.');
-      } catch(e) {
-        console.error('[doInit] ERROR:', e);
+      } catch (err) {
+        console.error('Error loading Embedded Messaging: ', err);
       }
       console.log('[doInit] END');
     }
