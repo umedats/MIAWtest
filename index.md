@@ -1,11 +1,7 @@
-<html lang="ja">
+<html>
 
 <body>
   <h1>Salesforce Embedded Service Chat Test</h1>
-  <p>
-    こちらは、Salesforce の Embedded Service デプロイメントから
-   2
-  </p>
 
 <script type='text/javascript'>
 	function initEmbeddedMessaging() {
